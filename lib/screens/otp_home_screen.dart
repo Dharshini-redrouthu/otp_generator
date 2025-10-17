@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/otp_service.dart';
-import 'success_screen.dart';
-import 'dart:async';
+import 'package:flutter/services.dart';
 
 class OTPHomeScreen extends StatefulWidget {
   const OTPHomeScreen({super.key});
@@ -11,147 +9,222 @@ class OTPHomeScreen extends StatefulWidget {
   State<OTPHomeScreen> createState() => _OTPHomeScreenState();
 }
 
-class _OTPHomeScreenState extends State<OTPHomeScreen> {
-  String _generatedOTP = "";
-  int _timeLeft = 0;
-  Timer? _timer;
+class _OTPHomeScreenState extends State<OTPHomeScreen>
+    with TickerProviderStateMixin {
+  String? _generatedOTP;
   final TextEditingController _otpController = TextEditingController();
+  final OTPService _otpService = OTPService();
+  bool _isCopied = false;
+
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
+    _fadeController.forward();
+  }
 
   void _generateOTP() {
     setState(() {
-      _generatedOTP = OTPService.generateOTP();
-      _timeLeft = 30; // OTP visible for 30 seconds
+      _generatedOTP = _otpService.generateOTP();
+      _isCopied = false;
     });
 
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Your OTP: $_generatedOTP (valid for 60 seconds)'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    _otpService.startOTPTimer(() {
       setState(() {
-        _timeLeft--;
-        if (_timeLeft <= 0) {
-          _generatedOTP = "";
-          timer.cancel();
-        }
+        _generatedOTP = null;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('OTP expired! Please generate again.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     });
   }
 
-  void _copyOTP() {
-    if (_generatedOTP.isNotEmpty) {
-      Clipboard.setData(ClipboardData(text: _generatedOTP));
+  void _validateOTP() {
+    final userInput = _otpController.text.trim();
+    if (_generatedOTP == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("OTP copied to clipboard!")),
+        const SnackBar(content: Text('Please generate OTP first')),
+      );
+      return;
+    }
+
+    if (userInput == _generatedOTP) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('OTP Validated Successfully!')),
+      );
+
+      // Clear OTP after success
+      setState(() {
+        _generatedOTP = null;
+        _otpController.clear();
+      });
+
+      Navigator.pushNamed(context, '/success');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid OTP! Try again.')),
       );
     }
   }
 
-  void _validateOTP() {
-    if (OTPService.validateOTP(_otpController.text, _generatedOTP)) {
-      _timer?.cancel();
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const SuccessScreen()),
-      );
-    } else {
+  void _copyOTP() {
+    if (_generatedOTP != null) {
+      Clipboard.setData(ClipboardData(text: _generatedOTP!));
+      setState(() => _isCopied = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invalid OTP. Please try again.")),
+        const SnackBar(content: Text('OTP copied to clipboard!')),
       );
     }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _otpService.cancelTimer();
     _otpController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF3F7FF),
       body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 350),
-          padding: const EdgeInsets.all(24),
-          child: Card(
-            elevation: 10,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "OTP Generator | Validator",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                    textAlign: TextAlign.center,
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            margin: const EdgeInsets.all(24),
+            width: 360,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.2),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'OTP Generator | Validator',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
-                  const SizedBox(height: 25),
-                  ElevatedButton(
-                    onPressed: _generateOTP,
-                    child: const Text("Generate OTP"),
-                  ),
-                  const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 24),
 
-                  // OTP Display Section
-                  if (_generatedOTP.isNotEmpty)
-                    Column(
+                // Generate Button
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  child: ElevatedButton(
+                    onPressed: _generateOTP,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: const Text(
+                      'Generate OTP',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // OTP Display
+                if (_generatedOTP != null)
+                  AnimatedScale(
+                    scale: 1.0,
+                    duration: const Duration(milliseconds: 400),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F0FE),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "OTP: $_generatedOTP",
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: _copyOTP,
-                                icon: const Icon(Icons.copy, color: Colors.blue),
-                              ),
-                            ],
+                        Text(
+                          'OTP: $_generatedOTP',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Expires in $_timeLeft sec",
-                          style: const TextStyle(color: Colors.redAccent),
+                        IconButton(
+                          icon: Icon(
+                            _isCopied ? Icons.check_circle : Icons.copy,
+                            color: _isCopied ? Colors.green : Colors.blue,
+                          ),
+                          onPressed: _copyOTP,
                         ),
                       ],
                     ),
+                  ),
 
-                  const SizedBox(height: 25),
-                  TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: "Enter OTP",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      prefixIcon: const Icon(Icons.lock_outline),
+                const SizedBox(height: 20),
+
+                // Input field
+                TextField(
+                  controller: _otpController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: 'Enter OTP',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    filled: true,
+                    fillColor: Colors.blue.shade50,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.blue.shade100),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.blue, width: 1.5),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _validateOTP,
-                    child: const Text("Validate OTP"),
+                ),
+                const SizedBox(height: 16),
+
+                // Validate Button
+                ElevatedButton(
+                  onPressed: _validateOTP,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 4,
                   ),
-                ],
-              ),
+                  child: const Text(
+                    'Validate OTP',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
