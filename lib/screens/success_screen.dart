@@ -9,38 +9,40 @@ class SuccessScreen extends StatefulWidget {
 
 class _SuccessScreenState extends State<SuccessScreen>
     with TickerProviderStateMixin {
-  late AnimationController _scaleController;
+  late AnimationController _iconController;
+  late Animation<double> _iconAnimation;
   late AnimationController _fadeController;
-  late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
 
-    _scaleController = AnimationController(
+    // Icon animation
+    _iconController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1200),
     );
-    _scaleAnimation =
-        CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut);
+    _iconAnimation =
+        CurvedAnimation(parent: _iconController, curve: Curves.elasticOut);
 
+    // Fade-in for text and button
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
     );
     _fadeAnimation =
         CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
 
-    _scaleController.forward();
-    Future.delayed(const Duration(milliseconds: 600), () {
+    _iconController.forward();
+    Future.delayed(const Duration(milliseconds: 800), () {
       _fadeController.forward();
     });
   }
 
   @override
   void dispose() {
-    _scaleController.dispose();
+    _iconController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -48,93 +50,104 @@ class _SuccessScreenState extends State<SuccessScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7FF),
+      backgroundColor: const Color(0xFFEAF2FF),
       body: Center(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Container(
-            width: 340,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withOpacity(0.15),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Colors.blue.shade300, Colors.blue.shade700],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+        child: Container(
+          width: 340,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withOpacity(0.25),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ScaleTransition(
+                scale: _iconAnimation,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade400, Colors.blue.shade600],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 3,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blueAccent.withOpacity(0.4),
-                          blurRadius: 25,
-                          spreadRadius: 6,
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: const Icon(
-                      Icons.check_circle,
-                      color: Colors.white,
-                      size: 80,
-                    ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(28),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 80,
                   ),
                 ),
-                const SizedBox(height: 24),
-                FadeTransition(
-                  opacity: _fadeAnimation,
+              ),
+              const SizedBox(height: 30),
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: const Text(
+                  'Authentication Successful!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: const Text(
+                  'You have been securely verified.\nWelcome aboard!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.black54,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14, horizontal: 30),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 6,
+                  ),
                   child: const Text(
-                    'Authentication Successful!',
-                    textAlign: TextAlign.center,
+                    'Back to Home',
                     style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ),
-                const SizedBox(height: 28),
-                FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade600,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 14, horizontal: 24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 6,
-                    ),
-                    icon: const Icon(Icons.home_rounded),
-                    label: const Text(
-                      'Back to Home',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
